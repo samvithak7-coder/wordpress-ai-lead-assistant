@@ -12,7 +12,7 @@ def health():
     return jsonify({
         "status": "healthy",
         "service": "WordPress AI Lead Assistant Backend",
-        "model": "llama-3.1-8b-instant"
+        "model": "llama3-8b-8192"
     })
 
 @app.route("/api/chat", methods=["POST"])
@@ -40,7 +40,7 @@ def chat():
                     "content": user_message
                 }
             ],
-            model="llama-3.1-8b-instant"
+            model="llama3-8b-8192"
         )
         reply = completion.choices[0].message.content
         return jsonify({"reply": reply, "status": "success"})
