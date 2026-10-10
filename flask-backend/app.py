@@ -64,7 +64,8 @@ def chat():
 
     try:
         client = Groq(api_key=api_key)
-        model_to_use = get_active_model(client)
+        # Explicitly force active_model dynamically resolved from Groq, ignoring any model parameter in user request payload
+        active_model = get_active_model(client)
         messages = [
             {
                 "role": "system",
@@ -76,8 +77,8 @@ def chat():
             }
         ]
         completion = client.chat.completions.create(
-            messages=messages,
-            model=model_to_use
+            model=active_model,
+            messages=messages
         )
         reply = completion.choices[0].message.content
         return jsonify({"reply": reply, "status": "success"})
