@@ -7,65 +7,21 @@ app = Flask(__name__)
 # Enable CORS for cross-origin requests from WordPress
 CORS(app)
 
+# Force this exact model ID across all endpoints in app.py
+MODEL_NAME = "llama-3.1-8b-instant"
+
 def get_active_model(client=None):
     """
-    Dynamically fetches active models from Groq's live models API.
-    Strictly filters for chat completion models starting with 'llama', 'mixtral', or 'gemma',
-    excluding audio, vision, or embedding models.
-    Prioritizes 'llama-3.3-70b-versatile' first, then 'llama-3.1-8b-instant'.
-    Falls back safely to 'llama-3.3-70b-versatile' if no match is found or fetching fails.
+    Returns the hardcoded Groq model ID: llama-3.1-8b-instant
     """
-    fallback_model = "llama-3.3-70b-versatile"
-    try:
-        if client is None:
-            api_key = os.environ.get("GROQ_API_KEY")
-            if not api_key:
-                return fallback_model
-            client = Groq(api_key=api_key)
-
-        models_page = client.models.list()
-        model_objs = models_page.data if hasattr(models_page, "data") else []
-
-        active_model_objs = [
-            m for m in model_objs
-            if getattr(m, "active", True) is not False and hasattr(m, "id")
-        ]
-
-        chat_models = []
-        for m in active_model_objs:
-            model_id = m.id.lower()
-            # Filter out audio, vision, or embedding models
-            if any(excluded in model_id for excluded in ["whisper", "vision", "embed", "tts"]):
-                continue
-            # Check if model.id starts with llama, mixtral, or gemma
-            if model_id.startswith(("llama", "mixtral", "gemma")):
-                chat_models.append(m.id)
-
-        if "llama-3.3-70b-versatile" in chat_models:
-            return "llama-3.3-70b-versatile"
-        elif "llama-3.1-8b-instant" in chat_models:
-            return "llama-3.1-8b-instant"
-        else:
-            llama_or_mixtral = [
-                mid for mid in chat_models
-                if mid.lower().startswith(("llama", "mixtral"))
-            ]
-            if llama_or_mixtral:
-                return llama_or_mixtral[0]
-            elif chat_models:
-                return chat_models[0]
-            else:
-                return fallback_model
-    except Exception:
-        return fallback_model
+    return MODEL_NAME
 
 @app.route("/", methods=["GET"])
 def health():
-    active_model = get_active_model()
     return jsonify({
         "status": "healthy",
         "service": "WordPress AI Lead Assistant Backend",
-        "model": active_model
+        "model": MODEL_NAME
     })
 
 @app.route("/api/chat", methods=["POST"])
@@ -82,8 +38,6 @@ def chat():
 
     try:
         client = Groq(api_key=api_key)
-        # Explicitly force active_model dynamically resolved from Groq, ignoring any model parameter in user request payload
-        active_model = get_active_model(client)
         messages = [
             {
                 "role": "system",
@@ -95,7 +49,7 @@ def chat():
             }
         ]
         completion = client.chat.completions.create(
-            model=active_model,
+            model=MODEL_NAME,
             messages=messages
         )
         reply = completion.choices[0].message.content
