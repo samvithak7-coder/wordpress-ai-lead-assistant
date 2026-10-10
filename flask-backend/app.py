@@ -10,9 +10,10 @@ CORS(app)
 def get_active_model(client=None):
     """
     Dynamically fetches active models from Groq's live models API.
-    Prefers 'llama-3.3-70b-versatile' or 'llama-3.1-8b-instant',
-    otherwise selects the first available active model ID.
-    Falls back safely to 'llama-3.3-70b-versatile' if fetching fails.
+    Strictly filters for chat completion models starting with 'llama', 'mixtral', or 'gemma',
+    excluding audio, vision, or embedding models.
+    Prioritizes 'llama-3.3-70b-versatile' first, then 'llama-3.1-8b-instant'.
+    Falls back safely to 'llama-3.3-70b-versatile' if no match is found or fetching fails.
     """
     fallback_model = "llama-3.3-70b-versatile"
     try:
@@ -25,19 +26,36 @@ def get_active_model(client=None):
         models_page = client.models.list()
         model_objs = models_page.data if hasattr(models_page, "data") else []
 
-        active_models = [
-            m.id for m in model_objs
+        active_model_objs = [
+            m for m in model_objs
             if getattr(m, "active", True) is not False and hasattr(m, "id")
         ]
 
-        if "llama-3.3-70b-versatile" in active_models:
+        chat_models = []
+        for m in active_model_objs:
+            model_id = m.id.lower()
+            # Filter out audio, vision, or embedding models
+            if any(excluded in model_id for excluded in ["whisper", "vision", "embed", "tts"]):
+                continue
+            # Check if model.id starts with llama, mixtral, or gemma
+            if model_id.startswith(("llama", "mixtral", "gemma")):
+                chat_models.append(m.id)
+
+        if "llama-3.3-70b-versatile" in chat_models:
             return "llama-3.3-70b-versatile"
-        elif "llama-3.1-8b-instant" in active_models:
+        elif "llama-3.1-8b-instant" in chat_models:
             return "llama-3.1-8b-instant"
-        elif active_models:
-            return active_models[0]
         else:
-            return fallback_model
+            llama_or_mixtral = [
+                mid for mid in chat_models
+                if mid.lower().startswith(("llama", "mixtral"))
+            ]
+            if llama_or_mixtral:
+                return llama_or_mixtral[0]
+            elif chat_models:
+                return chat_models[0]
+            else:
+                return fallback_model
     except Exception:
         return fallback_model
 
