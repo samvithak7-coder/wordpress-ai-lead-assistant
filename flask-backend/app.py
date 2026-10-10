@@ -12,7 +12,7 @@ def health():
     return jsonify({
         "status": "healthy",
         "service": "WordPress AI Lead Assistant Backend",
-        "model": "llama3-8b-8192"
+        "model": "llama-3.3-70b-versatile"
     })
 
 @app.route("/api/chat", methods=["POST"])
@@ -29,19 +29,26 @@ def chat():
 
     try:
         client = Groq(api_key=api_key)
-        completion = client.chat.completions.create(
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are Kvasir AI, an expert B2B lead generation & customer support assistant embedded on a live website. Keep answers helpful, professional, and under 3 concise sentences."
-                },
-                {
-                    "role": "user",
-                    "content": user_message
-                }
-            ],
-            model="llama3-8b-8192"
-        )
+        messages = [
+            {
+                "role": "system",
+                "content": "You are Kvasir AI, an expert B2B lead generation & customer support assistant embedded on a live website. Keep answers helpful, professional, and under 3 concise sentences."
+            },
+            {
+                "role": "user",
+                "content": user_message
+            }
+        ]
+        try:
+            completion = client.chat.completions.create(
+                messages=messages,
+                model="llama-3.3-70b-versatile"
+            )
+        except Exception:
+            completion = client.chat.completions.create(
+                messages=messages,
+                model="llama-3.1-8b-instant"
+            )
         reply = completion.choices[0].message.content
         return jsonify({"reply": reply, "status": "success"})
     except Exception as e:
